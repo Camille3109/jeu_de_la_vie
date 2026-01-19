@@ -34,7 +34,6 @@ class DisplayManager:
         return self.last_status
     
     def display_simple(self):
-        """Affichage simple sans curses"""
         print("\n" + "="*70)
         print(" THE CIRCLE OF LIFE - Simulation en cours")
         print("="*70)
