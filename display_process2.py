@@ -13,7 +13,8 @@ class DisplayManager:
     """Gestionnaire de l'affichage de la simulation"""
     def __init__(self, config):
         self.config = config
-        self.msg_queue = mp.Queue()
+        self.cmd_queue = mp.Queue()  # Pour envoyer des ordres à ENV
+        self.data_queue = mp.Queue() # Pour recevoir les données de ENV
         self.shared_memory = {
             'predator_count': mp.Value('i', 0),
             'prey_count': mp.Value('i', 0),
@@ -27,25 +28,30 @@ class DisplayManager:
     
     def start_simulation(self):
         # 1. Démarrer ENV
-        env_proc = mp.Process(target=env_process, args=(self.shared_memory, self.msg_queue, self.config))
+        env_proc = mp.Process(target=env_process, args=(self.shared_memory, self.cmd_queue, self.data_queue, self.config))
         env_proc.start()
         self.processes.append(env_proc)
+
+        time.sleep(0.5)
         
         # 2. Démarrer Prédateurs
         for i in range(self.config.INITIAL_PREDATORS):
             p = mp.Process(target=predator_process, args=(i, self.shared_memory, self.config))
             p.start()
             self.processes.append(p)
+        
+        time.sleep(0.5)
             
         # 3. Démarrer Proies
         for i in range(self.config.INITIAL_PREYS):
             p = mp.Process(target=prey_process, args=(i, self.shared_memory, self.config))
             p.start()
             self.processes.append(p)
+        time.sleep(0.5)
 
     def stop_simulation(self):
         print("\nArêt de la simulation...")
-        self.msg_queue.put({'type': 'SHUTDOWN'})
+        self.cmd_queue.put({'type': 'SHUTDOWN'})
         for p in self.processes:
             if p.is_alive():
                 p.terminate()
@@ -81,21 +87,21 @@ class DisplayManager:
         try:
             while self.running:
                 # 1. Demander le statut à ENV via la queue
-                self.msg_queue.put({'type': 'GET_STATUS'})
+                self.cmd_queue.put({'type': 'GET_STATUS'})
                 
                 # 2. Lire la réponse (non-bloquant)
                 status = None
                 start_wait = time.time()
                 while time.time() - start_wait < 0.2:
-                    if not self.msg_queue.empty():
-                        msg = self.msg_queue.get()
+                    if not self.data_queue.empty():
+                        msg = self.data_queue.get()
                         if isinstance(msg, dict) and 'predators' in msg:
                             status = msg
                             break
                 
                 # 3. Affichage
                 if status:
-                    self._print_status_line(status)
+                    self.print_status_line(status)
 
                 # 4. Gérer le clavier
                 if self.handle_input() == "QUIT":
@@ -108,10 +114,16 @@ class DisplayManager:
         finally:
             self.stop_simulation()
 
-    def _print_status_line(self, status):
-        health = "STABLE"
-        if status['predators'] == 0: health = "EXT. PREDATEURS"
-        elif status['preys'] == 0: health = "EXT. PROIES"
+    def print_status_line(self, status):
+        
+        total_pop = status['predators'] + status['preys']
+        health = " STABLE"
+        if status['predators'] == 0:
+            health = " EXTINCTION PRÉDATEURS"
+        elif status['preys'] == 0:
+            health = " EXTINCTION PROIES"
+        elif total_pop < 10:
+            health = " CRITIQUE"
         
         print(f"\r Tick: {status.get('tick', 0):6d} | "
               f"Preds: {status['predators']:3d} | "

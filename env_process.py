@@ -16,9 +16,10 @@ from prey_process import prey_process as prey_process_wrapper
 class EnvironmentManager:
     """Gestionnaire de l'environnement de simulation"""
     
-    def __init__(self, shared_memory, msg_queue, config):
+    def __init__(self, shared_memory, cmd_queue, data_queue, config):
         self.shared_mem = shared_memory
-        self.msg_queue = msg_queue
+        self.cmd_queue = cmd_queue
+        self.data_queue = data_queue
         self.config = config
         self.running = True
         self.drought_active = False
@@ -136,9 +137,9 @@ class EnvironmentManager:
     
     def handle_message_queue(self):
         """Traite les messages de la file (depuis display)"""
-        while not self.msg_queue.empty():
+        while not self.cmd_queue.empty():
             try:
-                msg = self.msg_queue.get_nowait()
+                msg = self.cmd_queue.get_nowait()
                 cmd_type = msg.get('type')
                 
                 if cmd_type == 'GET_STATUS':
@@ -152,7 +153,7 @@ class EnvironmentManager:
                             'deaths': self.total_deaths,
                             'drought_active': bool(self.shared_mem['drought_active'].value)
                         }
-                    self.msg_queue.put(status)
+                    self.data_queue.put(status)
                 
                 elif cmd_type == 'MODIFY_PARAMS':
                     param = msg.get('param')
@@ -168,7 +169,7 @@ class EnvironmentManager:
             except Exception as e:
                 print(f" Erreur message queue: {e}")
 
-    def handle_signal(self, sig):
+    def handle_signal(self, sig, frame):
         if sig == signal.SIGUSR1:
             self.trigger_drought()
     
@@ -246,7 +247,7 @@ class EnvironmentManager:
                 self.server_socket.close()
 
 
-def env_process(shared_memory, msg_queue, config):
+def env_process(shared_memory, cmd_queue, data_queue, config):
     """Point d'entrée du processus environnement"""
-    env = EnvironmentManager(shared_memory, msg_queue, config)
+    env = EnvironmentManager(shared_memory, cmd_queue, data_queue, config)
     env.run()
