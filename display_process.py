@@ -5,14 +5,17 @@ Processus DISPLAY - Interface utilisateur pour observer et contrôler la simulat
 import time
 import sys
 import os
+import signal
+import select
 
 
 class DisplayManager:
     """Gestionnaire de l'affichage de la simulation"""
     
-    def __init__(self, msg_queue, config):
+    def __init__(self, msg_queue, config, shared_memory):
         self.msg_queue = msg_queue
         self.config = config
+        self.shared_memory = shared_memory
         self.running = True
         self.last_status = {}
         
@@ -33,6 +36,14 @@ class DisplayManager:
             print(f" Erreur get_status: {e}")
         return self.last_status
     
+    def send_drought_signal(self):
+        try:
+            env_pid = self.shared_memory['env_pid'].value
+            if env_pid > 0:
+                os.kill(env_pid, signal.SIGUSR1)
+        except Exception as e:
+            print(f" Erreur signal sécheresse: {e}")
+    
     def display_simple(self):
         print("\n" + "="*70)
         print(" THE CIRCLE OF LIFE - Simulation en cours")
@@ -42,6 +53,13 @@ class DisplayManager:
         
         while self.running:
             status = self.get_status()
+
+            if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+                line = sys.stdin.readline().strip().lower()
+                if line == 'q':
+                    self.running = False
+                elif line == 'd':
+                    self.send_drought_signal()
             
             if status:
                 # Calcul de la santé de l'écosystème
@@ -53,15 +71,15 @@ class DisplayManager:
                     health = " EXTINCTION PROIES"
                 elif total_pop < 10:
                     health = " CRITIQUE"
-                
-                drought_str = "  SÉCHERESSE" if status.get('drought', False) else "  Normal"
-                
+
+
+
                 # Affichage (efface la ligne précédente)
                 print(f"\r Tick: {status.get('tick', 0):6d} | "
                       f" Prédateurs: {status['predators']:3d} | "
                       f" Proies: {status['preys']:3d} | "
                       f" Herbe: {status['grass']:4d} | "
-                      f"{drought_str:15s} | "
+                      f" Sécheresse: {'OUI' if status['drought_active'] else 'NON':3s} | "
                       f"{health:20s}", end='', flush=True)
             
             time.sleep(self.config.DISPLAY_UPDATE_INTERVAL)
@@ -76,7 +94,6 @@ class DisplayManager:
         
         print("\n\n Display arrêté")
 
-def display_process(msg_queue, config):
-    """Point d'entrée du processus display"""
-    display = DisplayManager(msg_queue, config)
+def display_process(msg_queue, config, shared_memory):
+    display = DisplayManager(msg_queue, config, shared_memory)
     display.run()

@@ -44,6 +44,7 @@ def test_scenario(name, config_modifications, duration=30):
         'grass_count': mp.Value('i', config.INITIAL_GRASS),
         'population_lock': mp.Lock(),
         'drought_active': mp.Value('i', 0),
+        'env_pid': mp.Value('i', 0)
     }
     
     msg_queue = mp.Queue()
@@ -51,6 +52,13 @@ def test_scenario(name, config_modifications, duration=30):
     # Démarrer ENV
     env_proc = mp.Process(target=env_process, args=(shared_memory, msg_queue, config))
     env_proc.start()
+    time.sleep(0.5)
+
+    display_proc = mp.Process(
+    target=display_process,
+    args=(msg_queue, config, shared_memory),
+    daemon=True)
+    display_proc.start()
     time.sleep(0.5)
     
     # Démarrer prédateurs

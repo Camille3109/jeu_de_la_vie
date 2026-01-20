@@ -7,6 +7,7 @@ import signal
 import time
 import json
 import random
+import os
 import multiprocessing as mp
 from threading import Thread
 from predator_process import predator_process as predator_process_wrapper
@@ -146,10 +147,10 @@ class EnvironmentManager:
                             'predators': self.shared_mem['predator_count'].value,
                             'preys': self.shared_mem['prey_count'].value,
                             'grass': int(self.shared_mem['grass_count'].value),
-                            'drought': self.drought_active,
                             'tick': self.tick_count,
                             'births': self.total_births,
-                            'deaths': self.total_deaths
+                            'deaths': self.total_deaths,
+                            'drought_active': bool(self.shared_mem['drought_active'].value)
                         }
                     self.msg_queue.put(status)
                 
@@ -163,11 +164,13 @@ class EnvironmentManager:
                     print(" Arrêt demandé via display")
                     self.running = False
                 
-                elif cmd_type == 'TRIGGER_DROUGHT':
-                    self.trigger_drought()
                 
             except Exception as e:
                 print(f" Erreur message queue: {e}")
+
+    def handle_signal(self, sig):
+        if sig == signal.SIGUSR1:
+            self.trigger_drought()
     
     def update_grass(self):
         """Met à jour la croissance de l'herbe"""
@@ -204,6 +207,8 @@ class EnvironmentManager:
     
     def run(self):
         """Boucle principale de l'environnement"""
+
+        self.shared_mem['env_pid'].value = os.getpid()
         try:
             self.setup_socket()
             
@@ -212,6 +217,8 @@ class EnvironmentManager:
             socket_thread.start()
             
             print(" Environnement actif")
+
+            signal.signal(signal.SIGUSR1, self.handle_signal)
             
             while self.running:
                 self.tick_count += 1

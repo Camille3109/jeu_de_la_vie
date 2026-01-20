@@ -36,6 +36,7 @@ def main():
         'grass_count': mp.Value('i', config.INITIAL_GRASS),
         'population_lock': mp.Lock(),
         'drought_active': mp.Value('i', 0),  # 0 = False, 1 = True
+        'env_pid': mp.Value('i', 0)
     }
     
     # File de messages pour display <-> env
