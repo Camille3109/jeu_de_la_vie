@@ -50,7 +50,9 @@ class DisplayManager:
         time.sleep(0.5)
 
     def stop_simulation(self):
-        print("\nArêt de la simulation...")
+        if not self.running:
+            return
+        print("\nArrêt de la simulation...")
         self.cmd_queue.put({'type': 'SHUTDOWN'})
         for p in self.processes:
             if p.is_alive():
@@ -131,6 +133,11 @@ class DisplayManager:
               f"Herbe: {status['grass']:4d} | "
               f"Sécheresse: {'OUI' if status['drought_active'] else 'NON'} | "
               f"{health:15s}", end='', flush=True)
+        
+        if health == " EXTINCTION PRÉDATEURS" or health == " EXTINCTION PROIES" :
+            self.stop_simulation()
+        elif status.get('tick', 0) >= 800 and health == " STABLE":
+            self.stop_simulation()
 
 if __name__ == "__main__":
     # Configuration
