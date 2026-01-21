@@ -129,9 +129,10 @@ class EnvironmentManager:
                         p.start()
                         self.total_births += 1
             
-            elif msg_type == 'FEED':
-                # Déjà géré dans les processus individuels
+            elif msg_type == 'FEED' :
                 pass
+                
+                
         except Exception as e:
             print(f" Erreur process_message: {e}")
     
@@ -162,7 +163,6 @@ class EnvironmentManager:
                         
                 
                 elif cmd_type == 'SHUTDOWN':
-                    print(" Arrêt demandé via display")
                     self.running = False
                 
                 
@@ -180,6 +180,12 @@ class EnvironmentManager:
                 current = self.shared_mem['grass_count'].value
                 new_value = min(current + self.config.GRASS_GROWTH_RATE, self.config.GRASS_MAX)
                 self.shared_mem['grass_count'].value = int(new_value)  # Convertir en int
+        else : 
+            with self.shared_mem['population_lock']:
+                current = self.shared_mem['grass_count'].value
+                new_value = max(current - self.config.GRASS_DECREASE_RATE, 0)
+                self.shared_mem['grass_count'].value = int(new_value)  # Convertir en int
+
     
     def check_drought(self):
         """Vérifie et gère les sécheresses"""
@@ -199,6 +205,7 @@ class EnvironmentManager:
         duration = random.randint(self.config.DROUGHT_MIN_DURATION, self.config.DROUGHT_MAX_DURATION)
         self.drought_end_tick = self.tick_count + duration
         print(f"  SÉCHERESSE déclenchée (durée: {duration} ticks)")
+
     
     def end_drought(self):
         """Termine une sécheresse"""
@@ -242,7 +249,6 @@ class EnvironmentManager:
             traceback.print_exc()
         finally:
             # Nettoyage
-            print(" Arrêt de l'environnement...")
             if self.server_socket:
                 self.server_socket.close()
 

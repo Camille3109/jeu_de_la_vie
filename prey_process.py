@@ -69,28 +69,27 @@ class Prey:
         """Tente de se nourrir d'herbe"""
         if self.state == 'active':
             with self.shared_mem['population_lock']:
-                if self.shared_mem['grass_count'].value > 0:
-                    # Manger de l'herbe
+                if self.shared_mem['grass_count'].value > 0 :
                     self.shared_mem['grass_count'].value -= 1
                     self.energy += self.config.PREY_ENERGY_GAIN
-                    # print(f" Proie {self.id}: A mangé de l'herbe! (énergie: {self.energy:.1f})")
-                    
-                    self.send_message({
-                        'type': 'FEED',
-                        'entity': 'prey',
-                        'id': self.id,
-                        'target': 'grass'
-                    })
-                    return True
+                  
+                self.send_message({
+                    'type': 'FEED',
+                    'entity': 'prey',
+                    'id': self.id,
+                    'target': 'grass'
+                })
+                return True
         return False
     
     def try_to_reproduce(self):
         """Tente de se reproduire si énergie suffisante"""
+        
         if self.energy > self.config.PREY_REPRODUCTION_THRESHOLD:
             # Probabilité de reproduction
             if random.random() < 0.4:  # 40% de chance
+                print(f" Proie {self.id}: Reproduction! (énergie: {self.energy:.1f})")
                 self.energy -= self.config.PREY_REPRODUCTION_COST
-                # print(f" Proie {self.id}: Reproduction! (énergie: {self.energy:.1f})")
                 
                 self.send_message({
                     'type': 'REPRODUCE',
@@ -107,7 +106,7 @@ class Prey:
         
         # print(f" Proie {self.id} née avec {self.energy:.1f} d'énergie")
         
-        while self.alive and self.energy > 0:
+        while self.alive and self.energy > 0 and not self.shared_mem['shutdown'].value :
             # Diminution de l'énergie
             self.energy -= self.config.PREY_ENERGY_DECAY
             

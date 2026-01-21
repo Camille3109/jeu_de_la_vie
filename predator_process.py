@@ -72,17 +72,17 @@ class Predator:
                 if self.shared_mem['prey_count'].value > 0:
                     # Chance de capturer une proie
                     if random.random() < 0.7:  # 70% de chance
-                        self.shared_mem['prey_count'].value -= 1
-                        self.energy += self.config.PREDATOR_ENERGY_GAIN
+                            self.shared_mem['prey_count'].value -= 1
+                            self.energy += self.config.PREDATOR_ENERGY_GAIN
                         # print(f" Prédateur {self.id}: A mangé une proie! (énergie: {self.energy:.1f})")
                         
-                        self.send_message({
-                            'type': 'FEED',
-                            'entity': 'predator',
-                            'id': self.id,
-                            'target': 'prey'
-                        })
-                        return True
+                            self.send_message({
+                                'type': 'FEED',
+                                'entity': 'predator',
+                                'id': self.id,
+                                'target': 'prey'
+                            })
+                            return True
         return False
     
     def try_to_reproduce(self):
@@ -91,7 +91,7 @@ class Predator:
             # Probabilité de reproduction
             if random.random() < 0.3:  # 30% de chance
                 self.energy -= self.config.PREDATOR_REPRODUCTION_COST
-                # print(f" Prédateur {self.id}: Reproduction! (énergie: {self.energy:.1f})")
+                #print(f" Prédateur {self.id}: Reproduction! (énergie: {self.energy:.1f})")
                 
                 self.send_message({
                     'type': 'REPRODUCE',
@@ -108,7 +108,7 @@ class Predator:
         
         # print(f" Prédateur {self.id} né avec {self.energy:.1f} d'énergie")
         
-        while self.alive and self.energy > 0:
+        while self.alive and self.energy > 0 and not self.shared_mem['shutdown'].value :
             # Diminution de l'énergie
             self.energy -= self.config.PREDATOR_ENERGY_DECAY
             

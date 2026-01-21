@@ -18,15 +18,16 @@ class DisplayManager:
         self.shared_memory = {
             'predator_count': mp.Value('i', 0),
             'prey_count': mp.Value('i', 0),
-            'grass_count': mp.Value('i', config.INITIAL_GRASS),
+            'grass_count': mp.Value('i', 0),
             'population_lock': mp.Lock(),
             'drought_active': mp.Value('i', 0),
-            'env_pid': mp.Value('i', 0)
+            'env_pid': mp.Value('i', 0),
+            'shutdown': mp.Value('i', 0)
         }
         self.processes = []
         self.running = True
     
-    def start_simulation(self):
+    def start_simulation(self, nb_predateurs, nb_proies):
         # 1. Démarrer ENV
         env_proc = mp.Process(target=env_process, args=(self.shared_memory, self.cmd_queue, self.data_queue, self.config))
         env_proc.start()
@@ -35,7 +36,7 @@ class DisplayManager:
         time.sleep(0.5)
         
         # 2. Démarrer Prédateurs
-        for i in range(self.config.INITIAL_PREDATORS):
+        for i in range(int(nb_predateurs)):
             p = mp.Process(target=predator_process, args=(i, self.shared_memory, self.config))
             p.start()
             self.processes.append(p)
@@ -43,7 +44,7 @@ class DisplayManager:
         time.sleep(0.5)
             
         # 3. Démarrer Proies
-        for i in range(self.config.INITIAL_PREYS):
+        for i in range(int(nb_proies)):
             p = mp.Process(target=prey_process, args=(i, self.shared_memory, self.config))
             p.start()
             self.processes.append(p)
@@ -53,10 +54,10 @@ class DisplayManager:
         if not self.running:
             return
         print("\nArrêt de la simulation...")
+        self.shared_memory['shutdown'].value = 1
         self.cmd_queue.put({'type': 'SHUTDOWN'})
         for p in self.processes:
             if p.is_alive():
-                p.terminate()
                 p.join(timeout=0.5)
         self.running = False
 
@@ -66,7 +67,7 @@ class DisplayManager:
             line = sys.stdin.readline().strip().lower()
             if line == 'q':
                 return "QUIT"
-            elif line == 'd':
+            elif line == 's':
                 self.trigger_drought()
         return None
 
@@ -83,8 +84,17 @@ class DisplayManager:
         """Boucle d'affichage et de contrôle principale"""
         print("\n" + "="*70)
         print(" THE CIRCLE OF LIFE - Simulation Lancée")
-        print(" Commandes: [q] Quitter | [d] Sécheresse")
+        print(" Commandes: [q] Quitter | [s] Sécheresse")
         print("="*70 + "\n")
+
+        nb_predateurs = input("Entrez le nombre de prédateurs : ")
+        nb_proies = input("Entrez le nombre de proies : ")
+        nb_herbe = input("Entrez la quantité d'herbe : ")
+        with self.shared_memory['population_lock']:
+            self.shared_memory['grass_count'].value = int(nb_herbe)
+        
+        self.start_simulation(nb_predateurs, nb_proies)
+
 
         try:
             while self.running:
@@ -146,5 +156,4 @@ if __name__ == "__main__":
     
     # Lancement
     controller = DisplayManager(my_config)
-    controller.start_simulation()
     controller.run_main_loop()

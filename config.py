@@ -11,18 +11,18 @@ class Config:
     INITIAL_GRASS = 100
     
     # Seuils d'énergie
-    PREDATOR_HUNGER_THRESHOLD = 50  # H pour prédateurs
-    PREY_HUNGER_THRESHOLD = 50      # H pour proies
+    PREDATOR_HUNGER_THRESHOLD = 75  # H pour prédateurs
+    PREY_HUNGER_THRESHOLD = 70      # H pour proies
     PREDATOR_REPRODUCTION_THRESHOLD = 120  # R pour prédateurs
     PREY_REPRODUCTION_THRESHOLD = 100      # R pour proies
     
     # Énergie
     PREDATOR_INITIAL_ENERGY = 100.0
-    PREY_INITIAL_ENERGY = 100.0
+    PREY_INITIAL_ENERGY = 95.0
     PREDATOR_ENERGY_DECAY = 0.5  # Perte par tick
     PREY_ENERGY_DECAY = 0.3
-    PREDATOR_ENERGY_GAIN = 40.0    # Gain en mangeant une proie
-    PREY_ENERGY_GAIN = 25.0        # Gain en mangeant de l'herbe
+    PREDATOR_ENERGY_GAIN = 46.0    # Gain en mangeant une proie
+    PREY_ENERGY_GAIN = 40.0        # Gain en mangeant de l'herbe
     
     # Reproduction
     PREDATOR_REPRODUCTION_COST = 60.0
@@ -31,6 +31,7 @@ class Config:
     # Environnement
     GRASS_GROWTH_RATE = 2.0      # Herbe ajoutée par tick
     GRASS_MAX = 500              # Maximum d'herbe
+    GRASS_DECREASE_RATE = 1.0
     
     # Sécheresse
     DROUGHT_PROBABILITY = 0.005  # Probabilité par tick
