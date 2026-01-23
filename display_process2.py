@@ -19,23 +19,24 @@ class DisplayManager:
             'predator_count': mp.Value('i', 0),
             'prey_count': mp.Value('i', 0),
             'grass_count': mp.Value('i', 0),
-            'population_lock': mp.Lock(),
+            'population_lock': mp.Lock(), # lock pour accéder à la shared memory
             'drought_active': mp.Value('i', 0),
-            'env_pid': mp.Value('i', 0),
-            'shutdown': mp.Value('i', 0)
+            'env_pid': mp.Value('i', 0), # PID du processus de l'environnement
+            'shutdown': mp.Value('i', 0) # pour arrêter les proies et prédateurs plus propremement 
         }
         self.processes = []
         self.running = True
     
     def start_simulation(self, nb_predateurs, nb_proies):
-        # 1. Démarrer ENV
+
+        # Démarrer ENV
         env_proc = mp.Process(target=env_process, args=(self.shared_memory, self.cmd_queue, self.data_queue, self.config))
         env_proc.start()
         self.processes.append(env_proc)
 
         time.sleep(0.5)
         
-        # 2. Démarrer Prédateurs
+        # Démarrer nb_predateurs prédateurs
         for i in range(int(nb_predateurs)):
             p = mp.Process(target=predator_process, args=(i, self.shared_memory, self.config))
             p.start()
@@ -43,13 +44,14 @@ class DisplayManager:
         
         time.sleep(0.5)
             
-        # 3. Démarrer Proies
+        # Démarrer nb_proies proies
         for i in range(int(nb_proies)):
             p = mp.Process(target=prey_process, args=(i, self.shared_memory, self.config))
             p.start()
             self.processes.append(p)
         time.sleep(0.5)
 
+    # On arrête la simulation 
     def stop_simulation(self):
         if not self.running:
             return
@@ -61,8 +63,8 @@ class DisplayManager:
                 p.join(timeout=0.5)
         self.running = False
 
+    # Gère les entrées de l'utilisateur dans le terminal : IA
     def handle_input(self):
-        """Gère les entrées clavier sur le processus principal"""
         if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
             line = sys.stdin.readline().strip().lower()
             if line == 'q':
@@ -71,6 +73,7 @@ class DisplayManager:
                 self.trigger_drought()
         return None
 
+    # Gère le déclenchement d'une sécheresse
     def trigger_drought(self):
         try:
             env_pid = self.shared_memory['env_pid'].value
@@ -80,8 +83,8 @@ class DisplayManager:
         except Exception as e:
             print(f"Erreur signal: {e}")
 
+    # La boucle principale qui contrôle la simulation 
     def run_main_loop(self):
-        """Boucle d'affichage et de contrôle principale"""
         print("\n" + "="*70)
         print(" THE CIRCLE OF LIFE - Simulation Lancée")
         print(" Commandes: [q] Quitter | [s] Sécheresse")
@@ -90,18 +93,19 @@ class DisplayManager:
         nb_predateurs = input("Entrez le nombre de prédateurs : ")
         nb_proies = input("Entrez le nombre de proies : ")
         nb_herbe = input("Entrez la quantité d'herbe : ")
+
         with self.shared_memory['population_lock']:
-            self.shared_memory['grass_count'].value = int(nb_herbe)
+            self.shared_memory['grass_count'].value = int(nb_herbe) # on initialise la quantité d'herbe indiquée par l'utilisateur
         
         self.start_simulation(nb_predateurs, nb_proies)
 
 
         try:
             while self.running:
-                # 1. Demander le statut à ENV via la queue
+                # On demande le statut à ENV via la queue
                 self.cmd_queue.put({'type': 'GET_STATUS'})
                 
-                # 2. Lire la réponse (non-bloquant)
+                # On lit la réponse (IA)
                 status = None
                 start_wait = time.time()
                 while time.time() - start_wait < 0.2:
@@ -119,7 +123,7 @@ class DisplayManager:
                 if self.handle_input() == "QUIT":
                     break
                 
-                time.sleep(self.config.DISPLAY_UPDATE_INTERVAL)
+                time.sleep(self.config.DISPLAY_UPDATE_INTERVAL) # on attend pendant un temps défini avant de relancer une boucle
         
         except KeyboardInterrupt:
             pass
@@ -137,12 +141,12 @@ class DisplayManager:
         elif total_pop < 10:
             health = " CRITIQUE"
         
-        print(f"\r Tick: {status.get('tick', 0):6d} | "
+        print(f"\r Tick: {status.get('tick', 0):6d} | " # les 6d, 3d servent à bien aligner ce qu'on affiche
               f"Preds: {status['predators']:3d} | "
               f"Proies: {status['preys']:3d} | "
               f"Herbe: {status['grass']:4d} | "
               f"Sécheresse: {'OUI' if status['drought_active'] else 'NON'} | "
-              f"{health:15s}", end='', flush=True)
+              f"{health:15s}", end='', flush=True) # flush permet d'afficher les données au fur à mesure qu'elles arrivent
         
         if health == " EXTINCTION PRÉDATEURS" or health == " EXTINCTION PROIES" :
             self.stop_simulation()
