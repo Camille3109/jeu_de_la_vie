@@ -23,7 +23,6 @@ class EnvironmentManager:
             'grass_count': mp.Value('i', 0),
             'population_lock': mp.Lock(), # lock pour accéder à la shared memory
             'drought_active': mp.Value('i', 0),
-            'env_pid': mp.Value('i', 0), # PID du processus de l'environnement
             'shutdown': mp.Value('i', 0) # pour arrêter les proies et prédateurs plus propremement 
         }
         self.cmd_queue = cmd_queue
@@ -237,7 +236,6 @@ class EnvironmentManager:
     def run(self):
         """Boucle principale de l'environnement"""
 
-        self.shared_mem['env_pid'].value = os.getpid()
         try:
             self.setup_socket()
             
@@ -251,14 +249,15 @@ class EnvironmentManager:
 
             self.handle_message_queue()
 
-            # Démarrer nb_predateurs prédateurs
+            
             with self.shared_mem["population_lock"] : 
                 nb_predateurs = self.shared_mem["predator_count"].value
                 nb_proies = self.shared_mem["prey_count"].value
             
-            self.shared_mem["predator_count"].value = 0
-            self.shared_mem["prey_count"].value = 0
+                self.shared_mem["predator_count"].value = 0
+                self.shared_mem["prey_count"].value = 0
 
+            # Démarrer nb_predateurs prédateurs
             for i in range(nb_predateurs):
                 p = mp.Process(target=predator_process_wrapper, args=(i, self.shared_mem, self.config))
                 p.start()
