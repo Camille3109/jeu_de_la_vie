@@ -22,7 +22,6 @@ class EnvironmentManager:
             'prey_count': mp.Value('i', 0),
             'grass_count': mp.Value('i', 0),
             'population_lock': mp.Lock(), # lock pour accéder à la shared memory
-            'drought_active': mp.Value('i', 0),
             'shutdown': mp.Value('i', 0) # pour arrêter les proies et prédateurs plus propremement 
         }
         self.cmd_queue = cmd_queue
@@ -172,7 +171,7 @@ class EnvironmentManager:
                             'tick': self.tick_count,
                             'births': self.total_births,
                             'deaths': self.total_deaths,
-                            'drought_active': bool(self.shared_mem['drought_active'].value)
+                            'drought_active': bool(self.drought_active)
                         }
                     self.data_queue.put(status)
                         
@@ -221,7 +220,6 @@ class EnvironmentManager:
     def trigger_drought(self):
         """Déclenche une sécheresse"""
         self.drought_active = True
-        self.shared_mem['drought_active'].value = 1
         duration = random.randint(self.config.DROUGHT_MIN_DURATION, self.config.DROUGHT_MAX_DURATION)
         self.drought_end_tick = self.tick_count + duration
         print(f"  SÉCHERESSE déclenchée (durée: {duration} ticks)")
@@ -230,7 +228,6 @@ class EnvironmentManager:
     def end_drought(self):
         """Termine une sécheresse"""
         self.drought_active = False
-        self.shared_mem['drought_active'].value = 0
         print(f"  SÉCHERESSE terminée")
     
     def run(self):
@@ -249,7 +246,7 @@ class EnvironmentManager:
 
             self.handle_message_queue()
 
-            
+            # On récup le nb de prédateurs et proies
             with self.shared_mem["population_lock"] : 
                 nb_predateurs = self.shared_mem["predator_count"].value
                 nb_proies = self.shared_mem["prey_count"].value
