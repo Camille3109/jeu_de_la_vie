@@ -16,8 +16,16 @@ from prey_process import prey_process as prey_process_wrapper
 class EnvironmentManager:
     """Gestionnaire de l'environnement de simulation"""
     
-    def __init__(self, shared_memory, cmd_queue, data_queue, config):
-        self.shared_mem = shared_memory
+    def __init__(self,cmd_queue, data_queue, config):
+        self.shared_mem =  {
+            'predator_count': mp.Value('i', 0),
+            'prey_count': mp.Value('i', 0),
+            'grass_count': mp.Value('i', 0),
+            'population_lock': mp.Lock(), # lock pour accéder à la shared memory
+            'drought_active': mp.Value('i', 0),
+            'env_pid': mp.Value('i', 0), # PID du processus de l'environnement
+            'shutdown': mp.Value('i', 0) # pour arrêter les proies et prédateurs plus propremement 
+        }
         self.cmd_queue = cmd_queue
         self.data_queue = data_queue
         self.config = config
@@ -25,6 +33,7 @@ class EnvironmentManager:
         self.drought_active = False
         self.tick_count = 0
         self.drought_end_tick = 0
+        self.processes = []
         
         # Socket serveur
         self.server_socket = None
@@ -33,17 +42,17 @@ class EnvironmentManager:
         # Statistiques
         self.total_births = 0
         self.total_deaths = 0
-        
+    
     def setup_socket(self):
         """Configure le socket serveur pour recevoir les messages"""
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # Autorise la réutilisation de l’adresse et du port du socket immédiatement après sa fermeture
         self.server_socket.bind((self.config.SOCKET_HOST, self.config.SOCKET_PORT))
         self.server_socket.listen(10)
         self.server_socket.settimeout(0.5)  # Non-bloquant
         print(f" Socket serveur démarré sur {self.config.SOCKET_HOST}:{self.config.SOCKET_PORT}")
     
-    def handle_socket_connections(self):
+    def handle_socket_connections(self): # IA
         """Thread pour gérer les connexions socket"""
         while self.running:
             try:
@@ -70,8 +79,8 @@ class EnvironmentManager:
                 
                 buffer += data
                 while '\n' in buffer:
-                    line, buffer = buffer.split('\n', 1)
-                    if line.strip():
+                    line, buffer = buffer.split('\n', 1) # on récup ligne par ligne dans le buffer (IA)
+                    if line.strip(): # si la ligne n'est pas vide (IA)
                         self.process_message(json.loads(line))
         except Exception as e:
             pass
@@ -90,7 +99,6 @@ class EnvironmentManager:
             
             if msg_type == 'JOIN':
                 entity = msg.get('entity')
-                entity_id = msg.get('id')
                 with self.shared_mem['population_lock']:
                     if entity == 'predator':
                         self.shared_mem['predator_count'].value += 1
@@ -109,8 +117,9 @@ class EnvironmentManager:
             elif msg_type == 'REPRODUCE':
                 entity = msg.get('entity')
                 with self.shared_mem['population_lock']:
-                    if entity == 'predator' and self.shared_mem['predator_count'].value < self.config.MAX_PREDATORS:
-                        # Lancer nouveau processus prédateur
+                    # Vérification cruciale : on ne reproduit pas une espèce éteinte
+                    if entity == 'predator' and 0 < self.shared_mem['predator_count'].value < self.config.MAX_PREDATORS:
+                        # Lancer nouveau processus prédateur avec un id inutilisé
                         new_id = self.tick_count * 1000 + random.randint(0, 999)
                         p = mp.Process(
                             target=predator_process_wrapper,
@@ -119,7 +128,7 @@ class EnvironmentManager:
                         )
                         p.start()
                         self.total_births += 1
-                    elif entity == 'prey' and self.shared_mem['prey_count'].value < self.config.MAX_PREYS:
+                    elif entity == 'prey' and 0 < self.shared_mem['prey_count'].value < self.config.MAX_PREYS:
                         new_id = self.tick_count * 1000 + random.randint(0, 999)
                         p = mp.Process(
                             target=prey_process_wrapper,
@@ -129,7 +138,7 @@ class EnvironmentManager:
                         p.start()
                         self.total_births += 1
             
-            elif msg_type == 'FEED' :
+            elif msg_type == 'FEED' : # On s'en occupe dans predator et prey
                 pass
                 
                 
@@ -143,7 +152,19 @@ class EnvironmentManager:
                 msg = self.cmd_queue.get_nowait()
                 cmd_type = msg.get('type')
                 
-                if cmd_type == 'GET_STATUS':
+                if cmd_type == 'GET_HERBE':
+                    with self.shared_mem['population_lock']:
+                        self.shared_mem['grass_count'].value = msg["value"]
+
+                elif cmd_type == 'GET_PREY':
+                    with self.shared_mem['population_lock']:
+                        self.shared_mem['prey_count'].value = msg["value"]
+
+                elif cmd_type == 'GET_PREDATOR':
+                    with self.shared_mem['population_lock']:
+                        self.shared_mem['predator_count'].value = msg["value"]
+
+                elif cmd_type == 'GET_STATUS':
                     with self.shared_mem['population_lock']:
                         status = {
                             'predators': self.shared_mem['predator_count'].value,
@@ -159,6 +180,11 @@ class EnvironmentManager:
                 
                 elif cmd_type == 'SHUTDOWN':
                     self.running = False
+                    with self.shared_mem['population_lock']:
+                        self.shared_mem['shutdown'].value = 1
+                    for p in self.processes:
+                        if p.is_alive():
+                            p.join(timeout=0.5)
                 
                 
             except Exception as e:
@@ -175,7 +201,7 @@ class EnvironmentManager:
                 current = self.shared_mem['grass_count'].value
                 new_value = min(current + self.config.GRASS_GROWTH_RATE, self.config.GRASS_MAX)
                 self.shared_mem['grass_count'].value = int(new_value)  # Convertir en int
-        else : 
+        else : # Si la sécheresse est active
             with self.shared_mem['population_lock']:
                 current = self.shared_mem['grass_count'].value
                 new_value = max(current - self.config.GRASS_DECREASE_RATE, 0)
@@ -222,6 +248,31 @@ class EnvironmentManager:
             print(" Environnement actif")
 
             signal.signal(signal.SIGUSR1, self.handle_signal)
+
+            self.handle_message_queue()
+
+            # Démarrer nb_predateurs prédateurs
+            with self.shared_mem["population_lock"] : 
+                nb_predateurs = self.shared_mem["predator_count"].value
+                nb_proies = self.shared_mem["prey_count"].value
+            
+            self.shared_mem["predator_count"].value = 0
+            self.shared_mem["prey_count"].value = 0
+
+            for i in range(nb_predateurs):
+                p = mp.Process(target=predator_process_wrapper, args=(i, self.shared_mem, self.config))
+                p.start()
+                self.processes.append(p)
+            
+            time.sleep(0.5)
+                
+            # Démarrer nb_proies proies
+            for i in range(nb_proies):
+                p = mp.Process(target=prey_process_wrapper, args=(i, self.shared_mem, self.config))
+                p.start()
+                self.processes.append(p)
+
+            time.sleep(0.5)
             
             while self.running:
                 self.tick_count += 1
@@ -248,7 +299,7 @@ class EnvironmentManager:
                 self.server_socket.close()
 
 
-def env_process(shared_memory, cmd_queue, data_queue, config):
+def env_process(cmd_queue, data_queue, config):
     """Point d'entrée du processus environnement"""
-    env = EnvironmentManager(shared_memory, cmd_queue, data_queue, config)
+    env = EnvironmentManager(cmd_queue, data_queue, config)
     env.run()

@@ -17,7 +17,7 @@ class Prey:
         
         # Attributs de la proie
         self.energy = config.PREY_INITIAL_ENERGY
-        self.state = 'passive'  # 'active' ou 'passive'
+        self.state = 'passive'  # active ou passive
         self.alive = True
         
         # Socket pour communiquer avec env
@@ -49,7 +49,7 @@ class Prey:
         """Envoie un message au processus env"""
         if self.socket:
             try:
-                data = json.dumps(msg) + '\n'
+                data = json.dumps(msg) + '\n' # on utilise cette fonction car msg est un dico, elle transforme en string
                 self.socket.sendall(data.encode('utf-8'))
             except Exception as e:
                 print(f" Proie {self.id}: Erreur envoi message: {e}")
@@ -59,12 +59,10 @@ class Prey:
         if self.energy < self.config.PREY_HUNGER_THRESHOLD:
             if self.state != 'active':
                 self.state = 'active'
-                # print(f" Proie {self.id}: ACTIVE (énergie: {self.energy:.1f})")
         elif self.energy > self.config.PREY_HUNGER_THRESHOLD + 20:
             if self.state != 'passive':
                 self.state = 'passive'
-                # print(f" Proie {self.id}: PASSIVE (énergie: {self.energy:.1f})")
-    
+ 
     def try_to_feed(self):
         """Tente de se nourrir d'herbe"""
         if self.state == 'active':
@@ -87,8 +85,7 @@ class Prey:
         
         if self.energy > self.config.PREY_REPRODUCTION_THRESHOLD:
             # Probabilité de reproduction
-            if random.random() < 0.4:  # 40% de chance
-                print(f" Proie {self.id}: Reproduction! (énergie: {self.energy:.1f})")
+            if random.random() < 0.4:  
                 self.energy -= self.config.PREY_REPRODUCTION_COST
                 
                 self.send_message({
@@ -104,7 +101,6 @@ class Prey:
         if not self.connect_to_env():
             return
         
-        # print(f" Proie {self.id} née avec {self.energy:.1f} d'énergie")
         
         while self.alive and self.energy > 0 and not self.shared_mem['shutdown'].value :
             # Diminution de l'énergie
@@ -128,18 +124,17 @@ class Prey:
             time.sleep(self.config.SIMULATION_TICK)
         
         # Mort de la proie
-        # print(f" Proie {self.id} est morte")
         self.send_message({
             'type': 'DEATH',
             'entity': 'prey',
             'id': self.id
         })
         
-        # Fermer le socket
+        # Fermer la socket
         if self.socket:
             self.socket.close()
 
 def prey_process(prey_id, shared_memory, config):
-    """Point d'entrée du processus proie"""
+
     prey = Prey(prey_id, shared_memory, config)
     prey.live()

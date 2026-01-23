@@ -124,14 +124,13 @@ class Predator:
             time.sleep(self.config.SIMULATION_TICK)
         
         # Mort du prédateur
-
         self.send_message({
             'type': 'DEATH',
             'entity': 'predator',
             'id': self.id
         })
         
-        # Fermer le socket
+        # Fermer la socket
         if self.socket:
             self.socket.close()
 
