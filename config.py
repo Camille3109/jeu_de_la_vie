@@ -2,9 +2,10 @@
 Configuration centralisée pour la simulation
 """
 
+# Générée par IA
+
 class Config:
-    """Paramètres de configuration pour l'écosystème"""
-    
+
     # Populations initiales
     INITIAL_PREDATORS = 5
     INITIAL_PREYS = 15
@@ -54,16 +55,4 @@ class Config:
         """Initialisation avec possibilité de charger depuis fichier"""
         pass
     
-    def update_parameter(self, param_name, value):
-        """Met à jour un paramètre dynamiquement"""
-        if hasattr(self, param_name):
-            setattr(self, param_name, value)
-            return True
-        return False
-    
-    def get_all_params(self):
-        """Retourne tous les paramètres sous forme de dictionnaire"""
-        return {
-            key: value for key, value in self.__dict__.items()
-            if not key.startswith('_') and not callable(value)
-        }
+

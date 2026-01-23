@@ -155,7 +155,6 @@ class DisplayManager:
 
 if __name__ == "__main__":
     # Configuration
-    mp.set_start_method('spawn', force=True)
     my_config = Config()
     
     # Lancement

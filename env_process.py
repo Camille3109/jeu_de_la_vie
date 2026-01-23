@@ -155,11 +155,6 @@ class EnvironmentManager:
                             'drought_active': bool(self.shared_mem['drought_active'].value)
                         }
                     self.data_queue.put(status)
-                
-                elif cmd_type == 'MODIFY_PARAMS':
-                    param = msg.get('param')
-                    value = msg.get('value')
-                    self.config.update_parameter(param, value)
                         
                 
                 elif cmd_type == 'SHUTDOWN':

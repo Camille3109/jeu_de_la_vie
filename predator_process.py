@@ -11,7 +11,7 @@ class Predator:
     """Représente un prédateur dans l'écosystème"""
     
     def __init__(self, predator_id, shared_memory, config):
-        self.id = predator_id
+        self.id = predator_id 
         self.shared_mem = shared_memory
         self.config = config
         
@@ -49,7 +49,7 @@ class Predator:
         """Envoie un message au processus env"""
         if self.socket:
             try:
-                data = json.dumps(msg) + '\n'
+                data = json.dumps(msg) + '\n' # on utilise cette fonction car msg est un dico, elle transforme en string
                 self.socket.sendall(data.encode('utf-8'))
             except Exception as e:
                 print(f" Prédateur {self.id}: Erreur envoi message: {e}")
@@ -59,22 +59,19 @@ class Predator:
         if self.energy < self.config.PREDATOR_HUNGER_THRESHOLD:
             if self.state != 'active':
                 self.state = 'active'
-                # print(f" Prédateur {self.id}: ACTIF (énergie: {self.energy:.1f})")
         elif self.energy > self.config.PREDATOR_HUNGER_THRESHOLD + 20:
             if self.state != 'passive':
                 self.state = 'passive'
-                # print(f" Prédateur {self.id}: PASSIF (énergie: {self.energy:.1f})")
     
     def try_to_feed(self):
-        """Tente de se nourrir d'une proie"""
+        """Tentative pour se nourrir d'une proie"""
         if self.state == 'active':
             with self.shared_mem['population_lock']:
                 if self.shared_mem['prey_count'].value > 0:
                     # Chance de capturer une proie
-                    if random.random() < 0.7:  # 70% de chance
+                    if random.random() < 0.7: 
                             self.shared_mem['prey_count'].value -= 1
                             self.energy += self.config.PREDATOR_ENERGY_GAIN
-                        # print(f" Prédateur {self.id}: A mangé une proie! (énergie: {self.energy:.1f})")
                         
                             self.send_message({
                                 'type': 'FEED',
@@ -86,12 +83,11 @@ class Predator:
         return False
     
     def try_to_reproduce(self):
-        """Tente de se reproduire si énergie suffisante"""
+        """Tentative de se reproduire si énergie suffisante"""
         if self.energy > self.config.PREDATOR_REPRODUCTION_THRESHOLD:
             # Probabilité de reproduction
-            if random.random() < 0.3:  # 30% de chance
+            if random.random() < 0.3: 
                 self.energy -= self.config.PREDATOR_REPRODUCTION_COST
-                #print(f" Prédateur {self.id}: Reproduction! (énergie: {self.energy:.1f})")
                 
                 self.send_message({
                     'type': 'REPRODUCE',
@@ -105,8 +101,6 @@ class Predator:
         """Boucle de vie du prédateur"""
         if not self.connect_to_env():
             return
-        
-        # print(f" Prédateur {self.id} né avec {self.energy:.1f} d'énergie")
         
         while self.alive and self.energy > 0 and not self.shared_mem['shutdown'].value :
             # Diminution de l'énergie
@@ -130,7 +124,7 @@ class Predator:
             time.sleep(self.config.SIMULATION_TICK)
         
         # Mort du prédateur
-        # print(f" Prédateur {self.id} est mort")
+
         self.send_message({
             'type': 'DEATH',
             'entity': 'predator',
@@ -142,6 +136,6 @@ class Predator:
             self.socket.close()
 
 def predator_process(predator_id, shared_memory, config):
-    """Point d'entrée du processus prédateur"""
+
     predator = Predator(predator_id, shared_memory, config)
     predator.live()
