@@ -48,7 +48,6 @@ class EnvironmentManager:
         self.server_socket.bind((self.config.SOCKET_HOST, self.config.SOCKET_PORT))
         self.server_socket.listen(10)
         self.server_socket.settimeout(0.5)  # Non-bloquant
-        print(f" Socket serveur démarré sur {self.config.SOCKET_HOST}:{self.config.SOCKET_PORT}")
     
     def handle_socket_connections(self): # IA
         """Thread pour gérer les connexions socket"""
@@ -95,6 +94,7 @@ class EnvironmentManager:
         try:
             msg_type = msg.get('type')
             
+            # Un predateur ou une proie est ajouté suite à sa création
             if msg_type == 'JOIN':
                 entity = msg.get('entity')
                 with self.shared_mem['population_lock']:
@@ -103,6 +103,7 @@ class EnvironmentManager:
                     elif entity == 'prey':
                         self.shared_mem['prey_count'].value += 1
             
+            # Un predateur ou une proie est enlevé suite à sa mort
             elif msg_type == 'DEATH':
                 entity = msg.get('entity')
                 with self.shared_mem['population_lock']:
@@ -112,10 +113,11 @@ class EnvironmentManager:
                         self.shared_mem['prey_count'].value = max(0, self.shared_mem['prey_count'].value - 1)
                 self.total_deaths += 1
             
+            # Un predateur ou une proie est ajouté suite à une reproduction
             elif msg_type == 'REPRODUCE':
                 entity = msg.get('entity')
                 with self.shared_mem['population_lock']:
-                    # Vérification cruciale : on ne reproduit pas une espèce éteinte
+                    # Vérification : on ne reproduit pas une espèce éteinte
                     if entity == 'predator' and 0 < self.shared_mem['predator_count'].value < self.config.MAX_PREDATORS:
                         # Lancer nouveau processus prédateur avec un id inutilisé
                         new_id = self.tick_count * 1000 + random.randint(0, 999)
@@ -127,6 +129,7 @@ class EnvironmentManager:
                         p.start()
                         self.total_births += 1
                     elif entity == 'prey' and 0 < self.shared_mem['prey_count'].value < self.config.MAX_PREYS:
+                        # Lancer nouveau processus prédateur avec un id inutilisé
                         new_id = self.tick_count * 1000 + random.randint(0, 999)
                         p = mp.Process(
                             target=prey_process_wrapper,
@@ -150,19 +153,19 @@ class EnvironmentManager:
                 msg = self.cmd_queue.get_nowait()
                 cmd_type = msg.get('type')
                 
-                if cmd_type == 'GET_HERBE':
+                if cmd_type == 'GET_HERBE': # on initialise la quantité d'herbe au départ
                     with self.shared_mem['population_lock']:
                         self.shared_mem['grass_count'].value = msg["value"]
 
-                elif cmd_type == 'GET_PREY':
+                elif cmd_type == 'GET_PREY': # on initialise la quantité de proies au départ
                     with self.shared_mem['population_lock']:
                         self.shared_mem['prey_count'].value = msg["value"]
 
-                elif cmd_type == 'GET_PREDATOR':
+                elif cmd_type == 'GET_PREDATOR': # on initialise la quantité de prédateurs au départ
                     with self.shared_mem['population_lock']:
                         self.shared_mem['predator_count'].value = msg["value"]
 
-                elif cmd_type == 'GET_STATUS':
+                elif cmd_type == 'GET_STATUS': # on récupère l'état des paramètres pour les transmettre au display
                     with self.shared_mem['population_lock']:
                         status = {
                             'predators': self.shared_mem['predator_count'].value,
@@ -176,7 +179,7 @@ class EnvironmentManager:
                     self.data_queue.put(status)
                         
                 
-                elif cmd_type == 'SHUTDOWN':
+                elif cmd_type == 'SHUTDOWN': # On stoppe la simulation
                     self.running = False
                     with self.shared_mem['population_lock']:
                         self.shared_mem['shutdown'].value = 1
@@ -189,7 +192,7 @@ class EnvironmentManager:
                 print(f" Erreur message queue: {e}")
 
     def handle_signal(self, sig, frame):
-        if sig == signal.SIGUSR1:
+        if sig == signal.SIGUSR1: # si on reçoit un signal, on déclenche une sécheresse
             self.trigger_drought()
     
     def update_grass(self):
@@ -222,13 +225,13 @@ class EnvironmentManager:
         self.drought_active = True
         duration = random.randint(self.config.DROUGHT_MIN_DURATION, self.config.DROUGHT_MAX_DURATION)
         self.drought_end_tick = self.tick_count + duration
-        print(f"  SÉCHERESSE déclenchée (durée: {duration} ticks)")
+        print(f"  🌞​ SÉCHERESSE déclenchée (durée: {duration} ticks)")
 
     
     def end_drought(self):
         """Termine une sécheresse"""
         self.drought_active = False
-        print(f"  SÉCHERESSE terminée")
+        print(f" 🌧️​ SÉCHERESSE terminée")
     
     def run(self):
         """Boucle principale de l'environnement"""
@@ -240,7 +243,8 @@ class EnvironmentManager:
             socket_thread = Thread(target=self.handle_socket_connections, daemon=True)
             socket_thread.start()
             
-            print(" Environnement actif")
+            print("Démarrage...")
+            print("\n")
 
             signal.signal(signal.SIGUSR1, self.handle_signal)
 

@@ -32,7 +32,7 @@ class DisplayManager:
     def stop_simulation(self):
         if not self.running:
             return
-        print("\nArrêt de la simulation...")
+        
         self.cmd_queue.put({'type': 'SHUTDOWN'})
         for p in self.processes:
             if p.is_alive():
@@ -61,13 +61,13 @@ class DisplayManager:
     # La boucle principale qui contrôle la simulation 
     def run_main_loop(self):
         print("\n" + "="*70)
-        print(" THE CIRCLE OF LIFE - Simulation Lancée")
+        print(" 🌍 ​THE CIRCLE OF LIFE - Simulation Lancée 🐛​")
         print(" Commandes: [q] Quitter | [s] Sécheresse")
         print("="*70 + "\n")
 
-        nb_predateurs = input("Entrez le nombre de prédateurs : ")
-        nb_proies = input("Entrez le nombre de proies : ")
-        nb_herbe = input("Entrez la quantité d'herbe : ")
+        nb_predateurs = input("🐯 ​Entrez le nombre de prédateurs : ")
+        nb_proies = input("🦓​ Entrez le nombre de proies : ")
+        nb_herbe = input("🌱​ Entrez la quantité d'herbe : ")
 
         
         # on initialise la quantité d'herbe indiquée par l'utilisateur
@@ -119,11 +119,11 @@ class DisplayManager:
         elif total_pop < 10:
             health = " CRITIQUE"
         
-        print(f"\r Tick: {status.get('tick', 0):6d} | " # les 6d, 3d servent à bien aligner ce qu'on affiche
-              f"Preds: {status['predators']:3d} | "
-              f"Proies: {status['preys']:3d} | "
-              f"Herbe: {status['grass']:4d} | "
-              f"Sécheresse: {'OUI' if status['drought_active'] else 'NON'} | "
+        print(f"\r ​⌛ Tick: {status.get('tick', 0):6d} | " # les 6d, 3d servent à bien aligner ce qu'on affiche
+              f"​🐯​ Preds: {status['predators']:3d} | "
+              f"🦓 ​Proies: {status['preys']:3d} | "
+              f"🌱 Herbe: {status['grass']:4d} | "
+              f"🌞 Sécheresse: {'OUI' if status['drought_active'] else 'NON'} | "
               f"{health:15s}", end='', flush=True) # flush permet d'afficher les données au fur à mesure qu'elles arrivent
         
         
