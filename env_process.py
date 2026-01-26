@@ -100,9 +100,9 @@ class EnvironmentManager:
             if msg_type == 'JOIN':
                 entity = msg.get('entity')
                 with self.shared_mem['population_lock']:
-                    if entity == 'predator':
+                    if entity == 'predator' and self.shared_mem['predator_count'].value < self.config.MAX_PREDATORS :
                         self.shared_mem['predator_count'].value += 1
-                    elif entity == 'prey':
+                    elif entity == 'prey'  and self.shared_mem['prey_count'].value < self.config.MAX_PREYS :
                         self.shared_mem['prey_count'].value += 1
             
             # Un predateur ou une proie est enlevé suite à sa mort
