@@ -47,6 +47,8 @@ class DisplayManager:
                 return "QUIT"
             elif line == 's':
                 self.trigger_drought(env_pid)
+            elif line == 'e' : 
+                self.trigger_epidemy(env_pid)
         return None
 
     # Gère le déclenchement d'une sécheresse
@@ -54,7 +56,14 @@ class DisplayManager:
         try:
             if env_pid > 0:
                 os.kill(env_pid, signal.SIGUSR1)
-                print("\n[EVENT] Sécheresse déclenchée !")
+        except Exception as e:
+            print(f"Erreur signal: {e}")
+
+     # Gère le déclenchement d'une épidémie
+    def trigger_epidemy(self, env_pid):
+        try:
+            if env_pid > 0:
+                os.kill(env_pid, signal.SIGUSR2)
         except Exception as e:
             print(f"Erreur signal: {e}")
 
@@ -62,7 +71,7 @@ class DisplayManager:
     def run_main_loop(self):
         print("\n" + "="*70)
         print(" 🌍 ​THE CIRCLE OF LIFE - Simulation Lancée 🐛​")
-        print(" Commandes: [q] Quitter | [s] Sécheresse")
+        print(" Commandes: [q] Quitter | [s] Sécheresse | [e] Épidémie")
         print("="*70 + "\n")
 
         nb_predateurs = input("🐯 ​Entrez le nombre de prédateurs : ")
@@ -124,6 +133,7 @@ class DisplayManager:
               f"🦓 ​Proies: {status['preys']:3d} | "
               f"🌱 Herbe: {status['grass']:4d} | "
               f"🌞 Sécheresse: {'OUI' if status['drought_active'] else 'NON'} | "
+              f"🦠 Épidémie: {'OUI' if status['epidemy_active'] else 'NON'} | "
               f"{health:15s}", end='', flush=True) # flush permet d'afficher les données au fur à mesure qu'elles arrivent
         
         

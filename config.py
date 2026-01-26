@@ -38,6 +38,12 @@ class Config:
     DROUGHT_PROBABILITY = 0.005  # Probabilité par tick
     DROUGHT_MIN_DURATION = 50    # Ticks minimum
     DROUGHT_MAX_DURATION = 150   # Ticks maximum
+
+    # Epidemie
+    EPIDEMY_PROBABILITY = 0.002  # Probabilité d'épidémie
+    EPIDEMY_DEATH_RATE = 0.01 # 1 % de chance de mourir par tick
+    EPIDEMY_MIN_DURATION = 20   # Ticks minimum
+    EPIDEMY_MAX_DURATION = 100   # Ticks maximum
     
     # Communication
     SOCKET_HOST = 'localhost'
@@ -50,6 +56,10 @@ class Config:
     # Limites
     MAX_PREDATORS = 100
     MAX_PREYS = 200
+
+    # Age maximum
+    AGE_PREDATORS = 300
+    AGE_PROIES = 150
     
     def __init__(self):
         """Initialisation avec possibilité de charger depuis fichier"""

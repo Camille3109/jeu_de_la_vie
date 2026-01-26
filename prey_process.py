@@ -19,6 +19,7 @@ class Prey:
         self.energy = config.PREY_INITIAL_ENERGY
         self.state = 'passive'  # active ou passive
         self.alive = True
+        self.age = 0
         
         # Socket pour communiquer avec env
         self.socket = None
@@ -102,7 +103,7 @@ class Prey:
             return
         
         
-        while self.alive and self.energy > 0 and not self.shared_mem['shutdown'].value :
+        while self.alive and self.energy > 0 and not self.shared_mem['shutdown'].value and self.age < self.config.AGE_PROIES :
             # Diminution de l'énergie
             self.energy -= self.config.PREY_ENERGY_DECAY
             
@@ -119,7 +120,14 @@ class Prey:
             if self.energy <= 0:
                 self.alive = False
                 break
+
+            if self.shared_mem['epidemy_active'].value:
+                if random.random() < self.config.EPIDEMY_DEATH_RATE:
+                    self.alive = False
+                    break
             
+            self.age += 1
+
             # Attendre le prochain cycle
             time.sleep(self.config.SIMULATION_TICK)
         

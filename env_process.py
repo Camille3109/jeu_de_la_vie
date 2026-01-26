@@ -22,7 +22,8 @@ class EnvironmentManager:
             'prey_count': mp.Value('i', 0),
             'grass_count': mp.Value('i', 0),
             'population_lock': mp.Lock(), # lock pour accéder à la shared memory
-            'shutdown': mp.Value('i', 0) # pour arrêter les proies et prédateurs plus propremement 
+            'shutdown': mp.Value('i', 0), # pour arrêter les proies et prédateurs plus propremement 
+            'epidemy_active': mp.Value('i', 0)
         }
         self.cmd_queue = cmd_queue
         self.data_queue = data_queue
@@ -31,6 +32,7 @@ class EnvironmentManager:
         self.drought_active = False
         self.tick_count = 0
         self.drought_end_tick = 0
+        self.epidemy_end_tick = 0
         self.processes = []
         
         # Socket serveur
@@ -174,7 +176,8 @@ class EnvironmentManager:
                             'tick': self.tick_count,
                             'births': self.total_births,
                             'deaths': self.total_deaths,
-                            'drought_active': bool(self.drought_active)
+                            'drought_active': bool(self.drought_active),
+                            'epidemy_active': bool(self.shared_mem['epidemy_active'].value)
                         }
                     self.data_queue.put(status)
                         
@@ -194,6 +197,8 @@ class EnvironmentManager:
     def handle_signal(self, sig, frame):
         if sig == signal.SIGUSR1: # si on reçoit un signal, on déclenche une sécheresse
             self.trigger_drought()
+        if sig == signal.SIGUSR2 : # si on reçoit un signal, on déclenche une épidémie
+            self.trigger_epidemy()
     
     def update_grass(self):
         """Met à jour la croissance de l'herbe"""
@@ -225,13 +230,44 @@ class EnvironmentManager:
         self.drought_active = True
         duration = random.randint(self.config.DROUGHT_MIN_DURATION, self.config.DROUGHT_MAX_DURATION)
         self.drought_end_tick = self.tick_count + duration
-        print(f"  🌞​ SÉCHERESSE déclenchée (durée: {duration} ticks)")
+        print(f"\n 🌞​ SÉCHERESSE déclenchée (durée: {duration} ticks)")
 
-    
     def end_drought(self):
         """Termine une sécheresse"""
         self.drought_active = False
         print(f" 🌧️​ SÉCHERESSE terminée")
+
+
+    def check_epidemy(self):
+        """Démarre une épidémie aléatoirement si aucune n'est lancée"""
+        with self.shared_mem['population_lock']:
+            if not self.shared_mem['epidemy_active'].value:
+                if random.random() < self.config.EPIDEMY_PROBABILITY:
+                    self.trigger_epidemy()
+
+
+    def trigger_epidemy(self):
+        """Démarre une émidémie"""
+        with self.shared_mem['population_lock']:
+            self.shared_mem['epidemy_active'].value = 1
+        duree = random.randint(
+            self.config.EPIDEMY_MIN_DURATION,
+            self.config.EPIDEMY_MAX_DURATION
+        )
+        self.epidemy_end_tick = self.tick_count + duree
+        print(f"\n 🦠 ÉPIDÉMIE déclenchée pour {duree} ticks !")
+
+
+    def update_epidemy(self):
+        """Termine une épidémie"""
+        with self.shared_mem['population_lock']:
+            if self.shared_mem['epidemy_active'].value:
+                if self.tick_count >= self.epidemy_end_tick:
+                    self.shared_mem['epidemy_active'].value = 0
+                    print(f"\n 💊​ ÉPIDÉMIE terminée")
+
+
+    
     
     def run(self):
         """Boucle principale de l'environnement"""
@@ -247,6 +283,7 @@ class EnvironmentManager:
             print("\n")
 
             signal.signal(signal.SIGUSR1, self.handle_signal)
+            signal.signal(signal.SIGUSR2, self.handle_signal)
 
             self.handle_message_queue()
 
@@ -285,6 +322,10 @@ class EnvironmentManager:
                 
                 # Gérer les sécheresses
                 self.check_drought()
+
+                # Gérer les épidémies
+                self.check_epidemy()
+                self.update_epidemy()
                 
                 # Attendre le prochain tick
                 time.sleep(self.config.SIMULATION_TICK)
