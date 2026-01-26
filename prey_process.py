@@ -66,21 +66,27 @@ class Prey:
  
     def try_to_feed(self):
         """Tente de se nourrir d'herbe"""
-        if self.state == 'active':
-            with self.shared_mem['population_lock']:
-                if self.shared_mem['grass_count'].value > 0 :
-                    self.shared_mem['grass_count'].value -= 1
-                    self.energy += self.config.PREY_ENERGY_GAIN
-                  
-                self.send_message({
-                    'type': 'FEED',
-                    'entity': 'prey',
-                    'id': self.id,
-                    'target': 'grass'
-                })
-                return True
-        return False
-    
+        if self.state != 'active':
+            return False
+
+        fed = False
+
+        with self.shared_mem['population_lock']:
+            if self.shared_mem['grass_count'].value > 0:
+                self.shared_mem['grass_count'].value -= 1
+                self.energy += self.config.PREY_ENERGY_GAIN
+                fed = True
+
+        if fed:
+            self.send_message({
+                'type': 'FEED',
+                'entity': 'prey',
+                'id': self.id,
+                'target': 'grass'
+            })
+
+        return fed
+
     def try_to_reproduce(self):
         """Tente de se reproduire si énergie suffisante"""
         

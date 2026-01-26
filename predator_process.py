@@ -65,24 +65,25 @@ class Predator:
                 self.state = 'passive'
     
     def try_to_feed(self):
-        """Tentative pour se nourrir d'une proie"""
-        if self.state == 'active':
-            with self.shared_mem['population_lock']:
-                if self.shared_mem['prey_count'].value > 0:
-                    # Chance de capturer une proie
-                    if random.random() < 0.7: 
-                            self.shared_mem['prey_count'].value -= 1
-                            self.energy += self.config.PREDATOR_ENERGY_GAIN
-                        
-                            self.send_message({
-                                'type': 'FEED',
-                                'entity': 'predator',
-                                'id': self.id,
-                                'target': 'prey'
-                            })
-                            return True
-        return False
-    
+        if self.state != 'active':
+            return False
+        fed = False
+
+        with self.shared_mem['population_lock']:
+            if self.shared_mem['prey_count'].value > 0 and random.random() < 0.7:
+                self.shared_mem['prey_count'].value -= 1
+                self.energy += self.config.PREDATOR_ENERGY_GAIN
+                fed = True
+        if fed:
+            self.send_message({
+                'type': 'FEED',
+                'entity': 'predator',
+                'id': self.id,
+                'target': 'prey'
+            })
+
+        return fed
+
     def try_to_reproduce(self):
         """Tentative de se reproduire si énergie suffisante"""
         if self.energy > self.config.PREDATOR_REPRODUCTION_THRESHOLD:
