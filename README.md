@@ -35,7 +35,7 @@ Le projet est divisé en quatre types de processus indépendants :
 | **Shared Memory** | Stockage des compteurs de populations (entre autres) via `mp.Value`, protégés par un `mp.Lock`. |
 | **Sockets (TCP)** | Communication entre les individus et `env` pour les messages de type JOIN, FEED, REPRODUCE et DEATH. |
 | **Message Queue** | Échange de commandes (`cmd_queue`) et de données (`data_queue`) entre `display` et `env`. |
-| **Signals (SIGUSR1)** | Déclenchement instantané d'une sécheresse ou d'une épidémie envoyé du processus `display` vers `env`. |
+| **Signals (SIGUSR1/2)** | Déclenchement instantané d'une sécheresse ou d'une épidémie envoyé du processus `display` vers `env`. |
 
 ---
 
