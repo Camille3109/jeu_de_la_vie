@@ -21,7 +21,9 @@ class EnvironmentManager:
             'predator_count': mp.Value('i', 0),
             'prey_count': mp.Value('i', 0),
             'grass_count': mp.Value('i', 0),
-            'population_lock': mp.Lock(), # lock pour accéder à la shared memory
+            'count_lock': mp.Lock(),# populations : lock pour accéder à la shared memory
+            'grass_lock': mp.Lock(), # herbe
+            'state_lock': mp.Lock(), # shutdown / epidemy 
             'shutdown': mp.Value('i', 0), # pour arrêter les proies et prédateurs plus propremement 
             'epidemy_active': mp.Value('i', 0)
         }
@@ -33,6 +35,7 @@ class EnvironmentManager:
         self.tick_count = 0
         self.drought_end_tick = 0
         self.epidemy_end_tick = 0
+        self.epidemy_dem = False
         self.processes = []
         
         # Socket serveur
@@ -99,7 +102,7 @@ class EnvironmentManager:
             # Un predateur ou une proie est ajouté suite à sa création
             if msg_type == 'JOIN':
                 entity = msg.get('entity')
-                with self.shared_mem['population_lock']:
+                with self.shared_mem['count_lock']:
                     if entity == 'predator':
                         self.shared_mem['predator_count'].value += 1
                     elif entity == 'prey' :
@@ -108,7 +111,7 @@ class EnvironmentManager:
             # Un predateur ou une proie est enlevé suite à sa mort
             elif msg_type == 'DEATH':
                 entity = msg.get('entity')
-                with self.shared_mem['population_lock']:
+                with self.shared_mem['count_lock']:
                     if entity == 'predator':
                         self.shared_mem['predator_count'].value = max(0, self.shared_mem['predator_count'].value - 1)
                     elif entity == 'prey':
@@ -118,28 +121,30 @@ class EnvironmentManager:
             # Un predateur ou une proie est ajouté suite à une reproduction
             elif msg_type == 'REPRODUCE':
                 entity = msg.get('entity')
-                with self.shared_mem['population_lock']:
-                    # Vérification : on ne reproduit pas une espèce éteinte
-                    if entity == 'predator' and 0 < self.shared_mem['predator_count'].value < self.config.MAX_PREDATORS:
-                        # Lancer nouveau processus prédateur avec un id inutilisé
-                        new_id = self.tick_count * 1000 + random.randint(0, 999)
-                        p = mp.Process(
-                            target=predator_process_wrapper,
-                            args=(new_id, self.shared_mem, self.config),
-                            name=f"predator_{new_id}"
-                        )
-                        p.start()
-                        self.total_births += 1
-                    elif entity == 'prey' and 0 < self.shared_mem['prey_count'].value < self.config.MAX_PREYS:
-                        # Lancer nouveau processus prédateur avec un id inutilisé
-                        new_id = self.tick_count * 1000 + random.randint(0, 999)
-                        p = mp.Process(
-                            target=prey_process_wrapper,
-                            args=(new_id, self.shared_mem, self.config),
-                            name=f"prey_{new_id}"
-                        )
-                        p.start()
-                        self.total_births += 1
+                with self.shared_mem['count_lock']:
+                    nb_preys = self.shared_mem['prey_count'].value
+                    nb_preds =  self.shared_mem['predator_count'].value
+                # Vérification : on ne reproduit pas une espèce éteinte
+                if entity == 'predator' and 0 < nb_preds < self.config.MAX_PREDATORS:
+                    # Lancer nouveau processus prédateur avec un id inutilisé
+                    new_id = self.tick_count * 1000 + random.randint(0, 999)
+                    p = mp.Process(
+                        target=predator_process_wrapper,
+                        args=(new_id, self.shared_mem, self.config),
+                        name=f"predator_{new_id}"
+                    )
+                    p.start()
+                    self.total_births += 1
+                elif entity == 'prey' and 0 < nb_preys < self.config.MAX_PREYS:
+                    # Lancer nouveau processus prédateur avec un id inutilisé
+                    new_id = self.tick_count * 1000 + random.randint(0, 999)
+                    p = mp.Process(
+                        target=prey_process_wrapper,
+                        args=(new_id, self.shared_mem, self.config),
+                        name=f"prey_{new_id}"
+                    )
+                    p.start()
+                    self.total_births += 1
             
             elif msg_type == 'FEED' : # On s'en occupe dans predator et prey
                 pass
@@ -156,19 +161,19 @@ class EnvironmentManager:
                 cmd_type = msg.get('type')
                 
                 if cmd_type == 'GET_HERBE': # on initialise la quantité d'herbe au départ
-                    with self.shared_mem['population_lock']:
+                    with self.shared_mem['grass_lock']:
                         self.shared_mem['grass_count'].value = msg["value"]
 
                 elif cmd_type == 'GET_PREY': # on initialise la quantité de proies au départ
-                    with self.shared_mem['population_lock']:
+                    with self.shared_mem['count_lock']:
                         self.shared_mem['prey_count'].value = msg["value"]
 
                 elif cmd_type == 'GET_PREDATOR': # on initialise la quantité de prédateurs au départ
-                    with self.shared_mem['population_lock']:
+                    with self.shared_mem['count_lock']:
                         self.shared_mem['predator_count'].value = msg["value"]
 
                 elif cmd_type == 'GET_STATUS': # on récupère l'état des paramètres pour les transmettre au display
-                    with self.shared_mem['population_lock']:
+                    with self.shared_mem['count_lock'], self.shared_mem['grass_lock'], self.shared_mem['state_lock']:
                         status = {
                             'predators': self.shared_mem['predator_count'].value,
                             'preys': self.shared_mem['prey_count'].value,
@@ -184,7 +189,7 @@ class EnvironmentManager:
                 
                 elif cmd_type == 'SHUTDOWN': # On stoppe la simulation
                     self.running = False
-                    with self.shared_mem['population_lock']:
+                    with self.shared_mem['state_lock']:
                         self.shared_mem['shutdown'].value = 1
                     for p in self.processes:
                         if p.is_alive():
@@ -198,17 +203,17 @@ class EnvironmentManager:
         if sig == signal.SIGUSR1: # si on reçoit un signal, on déclenche une sécheresse
             self.trigger_drought()
         if sig == signal.SIGUSR2 : # si on reçoit un signal, on déclenche une épidémie
-            self.trigger_epidemy()
+            self.epidemy_dem = True
     
     def update_grass(self):
         """Met à jour la croissance de l'herbe"""
         if not self.drought_active:
-            with self.shared_mem['population_lock']:
+            with self.shared_mem['grass_lock']:
                 current = self.shared_mem['grass_count'].value
                 new_value = min(current + self.config.GRASS_GROWTH_RATE, self.config.GRASS_MAX)
                 self.shared_mem['grass_count'].value = int(new_value)  # Convertir en int
         else : # Si la sécheresse est active
-            with self.shared_mem['population_lock']:
+            with self.shared_mem['grass_lock']:
                 current = self.shared_mem['grass_count'].value
                 new_value = max(current - self.config.GRASS_DECREASE_RATE, 0)
                 self.shared_mem['grass_count'].value = int(new_value)  # Convertir en int
@@ -235,21 +240,25 @@ class EnvironmentManager:
     def end_drought(self):
         """Termine une sécheresse"""
         self.drought_active = False
-        print(f" 🌧️​ SÉCHERESSE terminée")
+        print(f"\n 🌧️​ SÉCHERESSE terminée")
 
 
     def check_epidemy(self):
-        """Démarre une épidémie aléatoirement si aucune n'est lancée"""
-        with self.shared_mem['population_lock']:
-            if not self.shared_mem['epidemy_active'].value:
+        with self.shared_mem['state_lock']:
+            if not self.shared_mem['epidemy_active'].value: 
                 if random.random() < self.config.EPIDEMY_PROBABILITY:
                     self.trigger_epidemy()
 
 
     def trigger_epidemy(self):
-        """Démarre une émidémie"""
-        with self.shared_mem['population_lock']:
-            self.shared_mem['epidemy_active'].value = 1
+        """Démarre une émidémie
+        On le fait sans verrou car :
+        - Seul le processus ENV possède le droit d'écrire 
+          dans 'epidemy_active'. Il y écrit à seulement 2 endroits, et séquentiellement. 
+          Il n'y a donc pas de danger d'écriture simultanée.
+        - Ca garantit que le déclenchement de l'événement ne bloque pas les nombreux 
+          processus qui lisent cette valeur, ce qui créait des bugs auparavant"""
+        self.shared_mem['epidemy_active'].value = 1
         duree = random.randint(
             self.config.EPIDEMY_MIN_DURATION,
             self.config.EPIDEMY_MAX_DURATION
@@ -260,7 +269,7 @@ class EnvironmentManager:
 
     def update_epidemy(self):
         """Termine une épidémie"""
-        with self.shared_mem['population_lock']:
+        with self.shared_mem['state_lock']:
             if self.shared_mem['epidemy_active'].value:
                 if self.tick_count >= self.epidemy_end_tick:
                     self.shared_mem['epidemy_active'].value = 0
@@ -288,7 +297,7 @@ class EnvironmentManager:
             self.handle_message_queue()
 
             # On récup le nb de prédateurs et proies
-            with self.shared_mem["population_lock"] : 
+            with self.shared_mem["count_lock"] : 
                 nb_predateurs = self.shared_mem["predator_count"].value
                 nb_proies = self.shared_mem["prey_count"].value
             
@@ -324,6 +333,9 @@ class EnvironmentManager:
                 self.check_drought()
 
                 # Gérer les épidémies
+                if self.epidemy_dem : 
+                    self.trigger_epidemy()
+                    self.epidemy_dem = False
                 self.check_epidemy()
                 self.update_epidemy()
                 

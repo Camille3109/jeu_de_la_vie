@@ -69,7 +69,7 @@ class Predator:
             return False
         fed = False
 
-        with self.shared_mem['population_lock']:
+        with self.shared_mem['count_lock']:
             if self.shared_mem['prey_count'].value > 0 and random.random() < 0.7:
                 self.shared_mem['prey_count'].value -= 1
                 self.energy += self.config.PREDATOR_ENERGY_GAIN
@@ -122,9 +122,9 @@ class Predator:
                 self.alive = False
                 break
 
-            if self.shared_mem['epidemy_active'].value:
-                if random.random() < self.config.EPIDEMY_DEATH_RATE:
-                    self.alive = False
+            if self.shared_mem['epidemy_active'].value: # Lecture directe car ce n'est pas dangereux (c'est un entier, et en cas de 
+                if random.random() < self.config.EPIDEMY_DEATH_RATE: # mauvaise lecture il relit au tick d'après)
+                    self.alive = False                               # Evite des blocages
                     break
 
             self.age += 1

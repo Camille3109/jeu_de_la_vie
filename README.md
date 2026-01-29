@@ -1,9 +1,9 @@
 #  The Circle of Life - Simulation d'écosystème 
 
 ## Présentation du Projet
-Ce projet est une simulation d'un écosystème composé de **Prédateurs**, de **Proies** et d'**Herbe**. L'objectif est d'observer l'évolution des populations en fonction des ressources disponibles, des interactions biologiques et des aléas climatiques.
+Ce projet est une simulation d'un écosystème composé de **prédateurs**, de **proies** et d'**herbe**. L'objectif est d'observer l'évolution des populations en fonction des ressources disponibles, des interactions biologiques et des aléas climatiques.
 
-La simulation repose sur une architecture **multi-processus** en Python, utilisant diverses méthodes de communication inter-processus pour garantir la synchronisation des données.
+La simulation repose sur une architecture multi-processus en Python, utilisant diverses méthodes de communication inter-processus pour garantir la synchronisation des données.
 
 ---
 
