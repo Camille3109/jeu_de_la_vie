@@ -32,7 +32,7 @@ class DisplayManager:
     def stop_simulation(self):
         if not self.running:
             return
-        
+        print("\n La simulation est terminée !")
         self.cmd_queue.put({'type': 'SHUTDOWN'})
         for p in self.processes:
             if p.is_alive():

@@ -54,7 +54,7 @@ class EnvironmentManager:
         self.server_socket.listen(10)
         self.server_socket.settimeout(0.5)  # Non-bloquant
     
-    def handle_socket_connections(self): # IA
+    def handle_socket_connections(self): # IA un peu utilisée 
         """Thread pour gérer les connexions socket"""
         while self.running:
             try:
@@ -193,7 +193,7 @@ class EnvironmentManager:
                         self.shared_mem['shutdown'].value = 1
                     for p in self.processes:
                         if p.is_alive():
-                            p.join(timeout=0.5)
+                            p.join(timeout=0.5) # Non bloquant, n'attend plus au bout de 0.5 s
                 
                 
             except Exception as e:
@@ -301,8 +301,8 @@ class EnvironmentManager:
                 nb_predateurs = self.shared_mem["predator_count"].value
                 nb_proies = self.shared_mem["prey_count"].value
             
-                self.shared_mem["predator_count"].value = 0
-                self.shared_mem["prey_count"].value = 0
+                self.shared_mem["predator_count"].value = 0 # On les remets à 0 car ils seront réinitialisé avec les bonnes
+                self.shared_mem["prey_count"].value = 0 # valeurs dans process_message
 
             # Démarrer nb_predateurs prédateurs
             for i in range(nb_predateurs):
