@@ -140,7 +140,7 @@ class DisplayManager:
 
         if status["predators"] == 0 and status["preys"] == 0 :
             self.stop_simulation()
-        elif status.get('tick', 0) >= 800 and health == " STABLE":
+        elif status.get('tick', 0) >= 800 :
             self.stop_simulation()
 
 if __name__ == "__main__":

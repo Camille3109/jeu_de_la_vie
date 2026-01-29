@@ -35,7 +35,7 @@ class Config:
     GRASS_DECREASE_RATE = 1.0
     
     # Sécheresse
-    DROUGHT_PROBABILITY = 0.005  # Probabilité par tick
+    DROUGHT_PROBABILITY = 0.003  # Probabilité par tick
     DROUGHT_MIN_DURATION = 50    # Ticks minimum
     DROUGHT_MAX_DURATION = 150   # Ticks maximum
 
